@@ -7,7 +7,9 @@ namespace SystemKina
 {
     class Program
     {
-        public const string nazwaPliku = "kino.txt";
+        public const string nazwaPlikuKino = "kino.txt";
+        public const string nazwaPlikuUzytkownicy = "uzytkownicy.txt";
+        public static List<Konto> listaUzytkownikow;
 
         public static int PodajInt(string sTekst, int iMin = int.MinValue, int iMax = int.MaxValue)
         {
@@ -28,15 +30,153 @@ namespace SystemKina
             }
         }
 
+        public struct Konto
+        {
+            public string imie;
+            public string nazwisko;
+            public string email;
+            public string haslo;
+
+            public string PodajEmaila()
+            {
+                while (true)
+                {
+                    Console.Write("Podaj email: ");
+                    string email = Console.ReadLine();
+                    string trimmedEmail = email.Trim();
+
+                    if (trimmedEmail.EndsWith("."))
+                    {
+                        Console.WriteLine("Podano nieprawidłowy adres email! \nSpróbuj ponownie");
+                        continue;
+                    }
+                    try
+                    {
+                        var addr = new System.Net.Mail.MailAddress(email);
+                        
+                        if (addr.Address == trimmedEmail)
+                        {
+                            return trimmedEmail;
+                        }
+                    }
+                    catch
+                    {
+                        Console.WriteLine("Podano nieprawidłowy adres email! \nSpróbuj ponownie");
+                    }
+                }
+            }
+
+            public string PodajHaslo()
+            {
+                while (true)
+                {
+                    Console.Write("Podaj hasło (min. 8 znaków): ");
+                    string haslo = Console.ReadLine().Trim();
+
+                    if (haslo.Length >= 8) return haslo;
+                    else
+                    {
+                        Console.WriteLine("Hasło jest za słabe! Spróbuj ponownie");
+                    }
+                }
+            }
+
+            public bool Rejestracja()
+            {
+                Console.Clear();
+                Console.Write("Podaj imię: ");
+                imie = Console.ReadLine();
+
+                Console.Write("Podaj nazwisko: ");
+                nazwisko = Console.ReadLine();
+
+                // zrobić sprawdzenie poprawności maila i hasła
+                string email = PodajEmaila();
+
+                foreach (Konto konto in listaUzytkownikow)
+                {
+                    if (konto.email == email)
+                    {
+                        Console.WriteLine("ISTNIEJE JUŻ KONTO O PODANYM EMAILU !");
+                        Console.WriteLine("\n-- naciśnij dowolny przycisk --");
+                        Console.ReadKey();
+
+                        return false;
+                    }
+                }
+                this.email = email;
+
+                haslo = PodajHaslo();
+
+                return true;
+            }
+
+            public void Logowanie()
+            {
+                while (true)
+                {
+                    Console.Clear();
+                    Console.Write("Podaj email: ");
+                    string email = Console.ReadLine();
+                    bool znalezionoKonto = false;
+
+                    foreach (Konto szukaneKonto in listaUzytkownikow)
+                    {
+                        if (szukaneKonto.email == email)
+                        {
+                            this.email = email;
+                            znalezionoKonto = true;
+
+                            while (true)
+                            {
+                                Console.Write("Podaj hasło: ");
+                                string haslo = Console.ReadLine();
+
+                                if (szukaneKonto.haslo == haslo)
+                                {
+                                    this.haslo = haslo;
+                                    imie = szukaneKonto.imie;
+                                    nazwisko = szukaneKonto.nazwisko;
+                                    break;
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Podano błędne hasło!");
+                                    Console.WriteLine("Kliknij ENTER, żeby spróbować ponownie!");
+
+                                    if (Console.ReadKey().Key != ConsoleKey.Enter)
+                                        break;
+                                }
+                            }
+
+                            break;
+                        }
+                    }
+
+                    if (znalezionoKonto) break;
+                    else
+                    {
+                        Console.WriteLine("Nie znaleziono konta z podanym mailem!");
+                        Console.WriteLine("Kliknij ESC, żeby wyjść!");
+
+                        if (Console.ReadKey().Key == ConsoleKey.Escape)
+                            break;
+                    }
+                }
+            }
+        }
+
         public struct Miejsce
         {
             public int rzad;
             public int miejsce;
+            public string emailUzytkownika;
 
-            public Miejsce(int rzad, int miejsce)
+            public Miejsce(int rzad, int miejsce, string email)
             {
                 this.rzad = rzad;
                 this.miejsce = miejsce;
+                emailUzytkownika = email;
             }
         }
 
@@ -235,7 +375,7 @@ namespace SystemKina
             }
 
             // zwraca numer seansu wyświetlanej sali
-            public int WyswietlSale()
+            public int WyswietlSale(string emailUzytkownika = null)
             {
                 Console.Clear();
                 WyswietlSeanse();
@@ -245,12 +385,12 @@ namespace SystemKina
                     return 0;
 
                 Seans seans = seanse[nrSeansu - 1];
-                WyswietlPlanSali(seans);
+                WyswietlPlanSali(seans, emailUzytkownika);
 
                 return nrSeansu;
             }
 
-            public void WyswietlPlanSali(Seans seans)
+            public void WyswietlPlanSali(Seans seans, string emailUzytkownika)
             {
                 Console.Clear();
                 for (int i = 0; i < iloscRzedow; i++)
@@ -259,15 +399,17 @@ namespace SystemKina
 
                     for (int j = 0; j < iloscMiejscWRzedzie; j++)
                     {
-                        if (seans.zajeteMiejsca.Contains(new Miejsce(i + 1, j + 1)))
+                        int index = seans.zajeteMiejsca.FindIndex(zajeteMiejsce => zajeteMiejsce.rzad == i + 1 && zajeteMiejsce.miejsce == j + 1);
+
+                        if (index >= 0)
                         {
-                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.ForegroundColor = seans.zajeteMiejsca[index].emailUzytkownika == emailUzytkownika ? ConsoleColor.Blue : ConsoleColor.Red;
                             Console.Write(j >= 9 ? "[X ] " : "[X] ");
                             Console.ResetColor();
                         }
-
                         else
                             Console.Write($"[{j + 1}] ");
+                        
                     }
                     Console.WriteLine();
                 }
@@ -388,19 +530,39 @@ namespace SystemKina
             }
 
             // moduł rezerwacji
-            public void WyswietlSeanseDoWyboru()
+            public Konto Rejestracja()
+            {
+                Konto noweKonto = new Konto();
+                if (noweKonto.Rejestracja())
+                {
+                    listaUzytkownikow.Add(noweKonto);
+                    ZapiszDane();
+                }
+
+                return noweKonto;
+            }
+
+            public Konto Logowanie()
+            {
+                Konto kontoDoSprawdzenia = new Konto();
+                kontoDoSprawdzenia.Logowanie();
+
+                return kontoDoSprawdzenia;
+            }
+
+            public void WyswietlSeanseDoWyboru(string emailUzytkownika)
             {
                 WyswietlWszystkieSeansy();
                 Console.WriteLine();
                 int nrSali = PodajInt("Podaj numer sali do rezerwacji: ", 1);
-                int nrSeansu = sale[nrSali - 1].WyswietlSale();
+                int nrSeansu = sale[nrSali - 1].WyswietlSale(emailUzytkownika);
                 if (nrSeansu == 0)
                     return;
 
-                WyborMiejsca(sale[nrSali - 1], sale[nrSali - 1].seanse[nrSeansu - 1]);
+                WyborMiejsca(sale[nrSali - 1], sale[nrSali - 1].seanse[nrSeansu - 1], emailUzytkownika);
             }
 
-            public void WyszukajPoTytule()
+            public void WyszukajPoTytule(string emailUzytkownika)
             {
                 Console.Clear();
                 Console.Write("Wyszukaj seans: ");
@@ -420,10 +582,14 @@ namespace SystemKina
                     }
                 }
 
-                int nrSeansu = PodajInt("Podaj numer seansu do rezerwacji (podaj 0, żeby wyjść): ", 0);
-
-                if (nrSeansu == 0)
+                if (i == 0)
+                {
+                    Console.WriteLine("Nie znaleziono pasujących tytułów!");
                     return;
+                }
+
+                int nrSeansu = PodajInt("Podaj numer seansu do rezerwacji (podaj 0, żeby wyjść): ", 0);
+                if (nrSeansu == 0) return;
 
                 i = 0;
                 foreach (Sala sala in sale)
@@ -435,44 +601,49 @@ namespace SystemKina
                             i++;
                             if (i == nrSeansu)
                             {
-                                sala.WyswietlPlanSali(seans);
-                                WyborMiejsca(sala, seans);
+                                sala.WyswietlPlanSali(seans, emailUzytkownika);
+                                WyborMiejsca(sala, seans, emailUzytkownika);
                             }
                         }
                     }
                 }
             }
 
-            public void WyborMiejsca(Sala sala, Seans seans)
+            public void WyborMiejsca(Sala sala, Seans seans, string emailUzytkownika)
             {
                 //wybór miejsca
                 while (true)
                 {
                     int nrRzedu = PodajInt("\nPodaj numer rzędu do rezerwacji: ", 1, sala.iloscRzedow);
                     int nrMiejsca = PodajInt("Podaj numer miejsca do rezerwacji: ", 1, sala.iloscMiejscWRzedzie);
+                    int index = seans.zajeteMiejsca.FindIndex(zajeteMiejsce => zajeteMiejsce.rzad == nrRzedu && zajeteMiejsce.miejsce == nrMiejsca);
 
-                    if (seans.zajeteMiejsca.Contains(new Miejsce(nrRzedu, nrMiejsca)))
+                    if (index >= 0)
                     {
-                        Console.WriteLine("To miejsce jest zajęte! Kliknij ESC, żeby wyjść!");
+                        if (seans.zajeteMiejsca[index].emailUzytkownika == emailUzytkownika)
+                            Console.WriteLine("To miejsce jest już zajęte przez Ciebie! Kliknij ENTER, żeby kontynuować!");
 
-                        if (Console.ReadKey().Key == ConsoleKey.Escape)
-                            break;
+                        else
+                            Console.WriteLine("To miejsce jest zajęte! Kliknij ENTER, żeby kontynuować!");
+
+                        if (Console.ReadKey().Key != ConsoleKey.Enter)
+                            return;
                     }
                     else
                     {
-                        seans.zajeteMiejsca.Add(new Miejsce(nrRzedu, nrMiejsca));
+                        seans.zajeteMiejsca.Add(new Miejsce(nrRzedu, nrMiejsca, emailUzytkownika));
                         Console.WriteLine("ZAREZERWOWANO");
                         break;
                     }
                 }
             }
 
-            public void AnulujRezerwacje()
+            public void AnulujRezerwacje(string emailUzytkownika)
             {
                 WyswietlWszystkieSeansy();
                 int nrSali = PodajInt("Podaj numer sali do anulowania rezerwacji: ", 1);
                 Sala sala = sale[nrSali - 1];
-                int nrSeansu = sala.WyswietlSale();
+                int nrSeansu = sala.WyswietlSale(emailUzytkownika);
                 Seans seans = sala.seanse[nrSeansu - 1];
 
                 if (seans.zajeteMiejsca.Count == 0)
@@ -485,7 +656,7 @@ namespace SystemKina
                 {
                     int nrRzedu = PodajInt("\nPodaj numer rzędu do anulowania rezerwacji: ", 1, sala.iloscRzedow);
                     int nrMiejsca = PodajInt("Podaj numer miejsca do anulowania rezerwacji: ", 1, sala.iloscMiejscWRzedzie);
-                    Miejsce miejsce = new Miejsce(nrRzedu, nrMiejsca);
+                    Miejsce miejsce = new Miejsce(nrRzedu, nrMiejsca, emailUzytkownika);
 
                     if (seans.zajeteMiejsca.Contains(miejsce))
                     {
@@ -495,9 +666,9 @@ namespace SystemKina
                     }
                     else
                     {
-                        Console.WriteLine("To miejsce nie jest zajęte! Kliknij ESC, żeby wyjść!");
+                        Console.WriteLine("To miejsce nie jest zarezerwowane przez Ciebie! Kliknij ENTER, żeby kontynuować!");
 
-                        if (Console.ReadKey().Key == ConsoleKey.Escape)
+                        if (Console.ReadKey().Key != ConsoleKey.Enter)
                             break;
                     }
                 }
@@ -505,7 +676,20 @@ namespace SystemKina
 
             public void ZapiszDane()
             {
-                using StreamWriter zapisDanych = new StreamWriter(nazwaPliku);
+                using StreamWriter zapisUzytkownikow = new StreamWriter(nazwaPlikuUzytkownicy);
+
+                zapisUzytkownikow.WriteLine("[Uzytkownicy]");
+                zapisUzytkownikow.WriteLine(listaUzytkownikow.Count);
+
+                foreach (Konto konto in listaUzytkownikow)
+                {
+                    zapisUzytkownikow.WriteLine(konto.imie);
+                    zapisUzytkownikow.WriteLine(konto.nazwisko);
+                    zapisUzytkownikow.WriteLine(konto.email);
+                    zapisUzytkownikow.WriteLine(konto.haslo);
+                }
+
+                using StreamWriter zapisDanych = new StreamWriter(nazwaPlikuKino);
 
                 zapisDanych.WriteLine("[Kino]");
                 zapisDanych.WriteLine(sale.Count);
@@ -533,7 +717,7 @@ namespace SystemKina
 
                             foreach (Miejsce miejsce in seans.zajeteMiejsca)
                             {
-                                zapisDanych.WriteLine(miejsce.rzad + " " + miejsce.miejsce);
+                                zapisDanych.WriteLine($"{miejsce.rzad} {miejsce.miejsce} {miejsce.emailUzytkownika}");
                             }
                         }
                     }
@@ -542,9 +726,32 @@ namespace SystemKina
 
             public void OdczytajDane()
             {
-                if (File.Exists(nazwaPliku))
+                if (File.Exists(nazwaPlikuUzytkownicy))
                 {
-                    using StreamReader odczytDanych = new StreamReader(nazwaPliku);
+                    using StreamReader odczytUzytkownikow = new StreamReader(nazwaPlikuUzytkownicy);
+
+                    if (odczytUzytkownikow.ReadLine() == "[Uzytkownicy]")
+                    {
+                        int iloscUzytkownikow = int.Parse(odczytUzytkownikow.ReadLine());
+
+                        for (int i = 0; i < iloscUzytkownikow; i++)
+                        {
+                            Konto konto = new Konto
+                            {
+                                imie = odczytUzytkownikow.ReadLine(),
+                                nazwisko = odczytUzytkownikow.ReadLine(),
+                                email = odczytUzytkownikow.ReadLine(),
+                                haslo = odczytUzytkownikow.ReadLine()
+                            };
+
+                            listaUzytkownikow.Add(konto);
+                        }
+                    }
+                }
+
+                if (File.Exists(nazwaPlikuKino))
+                {
+                    using StreamReader odczytDanych = new StreamReader(nazwaPlikuKino);
 
                     if (odczytDanych.ReadLine() == "[Kino]")
                     {
@@ -554,18 +761,15 @@ namespace SystemKina
                         {
                             if (odczytDanych.ReadLine() == "[Sala]")
                             {
-                                int nrSali = int.Parse(odczytDanych.ReadLine());
-                                int iloscRzedow = int.Parse(odczytDanych.ReadLine());
-                                int iloscMiejscWRzedzie = int.Parse(odczytDanych.ReadLine());
-                                int iloscSeansow = int.Parse(odczytDanych.ReadLine());
-
                                 Sala sala = new Sala
                                 {
                                     seanse = new List<Seans>(),
-                                    nrSali = nrSali,
-                                    iloscRzedow = iloscRzedow,
-                                    iloscMiejscWRzedzie = iloscMiejscWRzedzie
+                                    nrSali = int.Parse(odczytDanych.ReadLine()),
+                                    iloscRzedow = int.Parse(odczytDanych.ReadLine()),
+                                    iloscMiejscWRzedzie = int.Parse(odczytDanych.ReadLine())
                                 };
+
+                                int iloscSeansow = int.Parse(odczytDanych.ReadLine());
 
                                 for (int j = 0; j < iloscSeansow; j++)
                                 {
@@ -587,8 +791,9 @@ namespace SystemKina
                                                 string[] pozycja = odczytDanych.ReadLine().Trim().Split(' ');
                                                 int rzad = int.Parse(pozycja[0]);
                                                 int miejsce = int.Parse(pozycja[1]);
+                                                string email = pozycja[2];
 
-                                                zajeteMiejsca.Add(new Miejsce(rzad, miejsce));
+                                                zajeteMiejsca.Add(new Miejsce(rzad, miejsce, email));
                                             }
                                         }
 
@@ -615,6 +820,7 @@ namespace SystemKina
 
         public static void GlowneMenu()
         {
+            listaUzytkownikow = new List<Konto>();
             Kino kino = new Kino();
             kino.sale = new List<Sala>();
             kino.OdczytajDane();
@@ -672,21 +878,47 @@ namespace SystemKina
 
         public static void MenuRezerwacji(Kino kino)
         {
+            Console.Clear();
+            Console.WriteLine("1. Wróć do wyboru modułu\n");
+            Console.WriteLine("2. Zarejestruj się");
+            Console.WriteLine("3. Zaloguj się");
+            int odp = PodajInt("Co chcesz zrobić? ", 1, 3);
+
+            Konto zalogowaneKonto = new Konto();
+
+            switch (odp)
+            {
+                // spróbować przekazać do Rejestracja i Logowanie zalogowaneKonto jako referencję
+                case 1: return;
+                case 2: zalogowaneKonto = kino.Rejestracja(); break;
+                case 3: zalogowaneKonto = kino.Logowanie(); break;
+            }
+
+            if (!listaUzytkownikow.Contains(zalogowaneKonto)) return;
+            else
+            {
+                Console.WriteLine("\nZALOGOWANO");
+                Console.WriteLine($"WITAJ {zalogowaneKonto.imie} {zalogowaneKonto.nazwisko}");
+                Console.WriteLine("\n-- naciśnij dowolny przycisk --");
+                Console.ReadKey();
+            }
+
             while (true)
             {
                 Console.Clear();
+                Console.WriteLine($"WITAJ {zalogowaneKonto.imie} {zalogowaneKonto.nazwisko}");
                 Console.WriteLine("1. Wróć do wyboru modułu\n");
                 Console.WriteLine("2. Wyświetl seanse do wyboru");
                 Console.WriteLine("3. Wyszukaj seans po tytule filmu\n");
                 Console.WriteLine("4. Anuluj rezerwację");
-                int iOdp = PodajInt("Co chcesz zrobić? ", 1, 4);
+                odp = PodajInt("Co chcesz zrobić? ", 1, 4);
 
-                switch (iOdp)
+                switch (odp)
                 {
                     case 1: return;
-                    case 2: kino.WyswietlSeanseDoWyboru(); break;
-                    case 3: kino.WyszukajPoTytule(); break;
-                    case 4: kino.AnulujRezerwacje(); break;
+                    case 2: kino.WyswietlSeanseDoWyboru(zalogowaneKonto.email); break;
+                    case 3: kino.WyszukajPoTytule(zalogowaneKonto.email); break;
+                    case 4: kino.AnulujRezerwacje(zalogowaneKonto.email); break;
                 }
 
                 kino.ZapiszDane();
